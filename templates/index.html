@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GlowMate - Your AI Skincare Companion</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <h1>✨ GlowMate</h1>
+                <p>Your AI companion for flawless skin</p>
+            </div>
+            <div class="header-actions">
+                <div class="user-info">
+                    <span>👤 {{ session.username if session.username else 'User' }}</span>
+                </div>
+                <div class="theme-toggle">
+                    <button id="themeToggle" class="theme-btn">🌙 Dark Mode</button>
+                </div>
+                <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Analysis Section -->
+            <section class="analysis-section glass-card">
+                <h2>Skin Analysis</h2>
+                <div class="upload-tips" style="background: rgba(102, 126, 234, 0.1); padding: 15px; border-radius: 10px; margin-bottom: 20px; font-size: 0.9rem;">
+                    <strong>💡 Photo Tips:</strong> Use clear, front-facing photos with good lighting. Face should be centered and clearly visible. Avoid heavy makeup, filters, or extreme angles. 
+                    <a href="IMAGE_UPLOAD_GUIDE.md" target="_blank" style="color: #667eea; text-decoration: underline;">See full guide</a>
+                </div>
+                <div class="upload-options">
+                    <div class="upload-option">
+                        <input type="file" id="imageUpload" accept="image/*" style="display: none;">
+                        <button class="upload-btn" onclick="document.getElementById('imageUpload').click()">
+                            📁 Upload Image
+                        </button>
+                    </div>
+                    <div class="upload-option">
+                        <button class="upload-btn" id="webcamBtn">
+                            📷 Use Webcam
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Webcam Modal -->
+                <div id="webcamModal" class="modal">
+                    <div class="modal-content glass-card">
+                        <span class="close">&times;</span>
+                        <h3>Capture Your Photo</h3>
+                        <video id="video" autoplay playsinline></video>
+                        <canvas id="canvas" style="display: none;"></canvas>
+                        <div class="modal-actions">
+                            <button id="captureBtn" class="btn-primary">Capture</button>
+                            <button id="cancelWebcam" class="btn-secondary">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Preview -->
+                <div id="imagePreview" class="image-preview" style="display: none;">
+                    <img id="previewImg" src="" alt="Preview">
+                    <button class="analyze-btn" id="analyzeBtn">🔍 Analyze Skin</button>
+                </div>
+
+                <!-- Loading -->
+                <div id="loading" class="loading" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>Analyzing your skin...</p>
+                </div>
+            </section>
+
+            <!-- Results Section -->
+            <section id="resultsSection" class="results-section" style="display: none;">
+                <div class="glass-card">
+                    <h2>Analysis Results</h2>
+                    
+                    <!-- Skin Health Score -->
+                    <div class="health-score">
+                        <div class="score-circle">
+                            <span id="healthScore">0</span>
+                            <small>/100</small>
+                        </div>
+                        <p>Skin Health Score</p>
+                        <p class="skin-type">Skin Type: <span id="skinType">-</span></p>
+                    </div>
+
+                    <!-- Analysis Details -->
+                    <div class="analysis-details">
+                        <h3>Detailed Analysis</h3>
+                        <div class="analysis-grid" id="analysisGrid">
+                            <!-- Dynamic content -->
+                        </div>
+                    </div>
+
+                    <!-- Recommendations -->
+                    <div class="recommendations">
+                        <h3>Personalized Recommendations</h3>
+                        <div class="tabs">
+                            <button class="tab-btn active" data-tab="products">Products</button>
+                            <button class="tab-btn" data-tab="morning">Morning Routine</button>
+                            <button class="tab-btn" data-tab="night">Night Routine</button>
+                            <button class="tab-btn" data-tab="tips">Tips</button>
+                        </div>
+                        <div class="tab-content" id="tabContent">
+                            <!-- Dynamic content -->
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="action-buttons">
+                        <button class="btn-primary" id="downloadPdfBtn">📄 Download PDF Report</button>
+                        <button class="btn-secondary" id="compareBtn">🔄 Compare Before/After</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Chatbot Section -->
+            <section class="chatbot-section glass-card">
+                <h2>💬 Ask Me Anything</h2>
+                <div class="quick-questions">
+                    <strong>Quick questions:</strong>
+                    <div class="quick-buttons">
+                        <button class="quick-btn" data-question="What should I do for acne?">Acne</button>
+                        <button class="quick-btn" data-question="How often should I exfoliate?">Exfoliation</button>
+                        <button class="quick-btn" data-question="Tell me about sunscreen">Sunscreen</button>
+                        <button class="quick-btn" data-question="What's a good skincare routine?">Routine</button>
+                        <button class="quick-btn" data-question="Help with dark circles">Dark Circles</button>
+                        <button class="quick-btn" data-question="Anti-aging tips">Wrinkles</button>
+                        <button class="quick-btn" data-question="My skin is sensitive">Sensitive</button>
+                        <button class="quick-btn" data-question="Tell me about serums">Serums</button>
+                        <button class="quick-btn" data-question="Best moisturizer for my skin">Moisturizer</button>
+                        <button class="quick-btn" data-question="Diet for healthy skin">Diet</button>
+                    </div>
+                </div>
+                <div class="chat-container">
+                    <div class="chat-messages" id="chatMessages">
+                        <div class="message bot-message">
+                            <p>Hi! I'm your skincare assistant. Ask me anything about skincare, routines, or products! 😊</p>
+                        </div>
+                    </div>
+                    <div class="chat-input-container">
+                        <input type="text" id="chatInput" placeholder="Type your question..." class="chat-input">
+                        <button id="sendBtn" class="send-btn">Send</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- History Section -->
+            <section class="history-section glass-card">
+                <h2>📊 Analysis History</h2>
+                <div id="historyList" class="history-list">
+                    <p>No previous analyses yet.</p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Compare Modal -->
+    <div id="compareModal" class="modal">
+        <div class="modal-content glass-card large-modal">
+            <span class="close">&times;</span>
+            <h3>Before & After Comparison</h3>
+            <div class="compare-container">
+                <div class="compare-item">
+                    <h4>Before</h4>
+                    <input type="file" id="beforeImage" accept="image/*">
+                    <div id="beforePreview" class="compare-preview"></div>
+                    <div id="beforeScore" class="compare-score"></div>
+                </div>
+                <div class="compare-item">
+                    <h4>After</h4>
+                    <input type="file" id="afterImage" accept="image/*">
+                    <div id="afterPreview" class="compare-preview"></div>
+                    <div id="afterScore" class="compare-score"></div>
+                </div>
+            </div>
+            <div class="improvement" id="improvement"></div>
+            <button class="btn-primary" id="compareAnalyzeBtn">Compare</button>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
+
