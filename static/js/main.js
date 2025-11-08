@@ -60,35 +60,295 @@ const webcamBtn = document.getElementById('webcamBtn');
 const webcamModal = document.getElementById('webcamModal');
 const video = document.getElementById('video');
 const canvas = document.getElementById('canvas');
-const captureBtn = document.getElementById('captureBtn');
+let captureBtn = document.getElementById('captureBtn');
+const captureBtnFallback = document.getElementById('captureBtnFallback');
 const cancelWebcam = document.getElementById('cancelWebcam');
+const flipCameraBtn = document.getElementById('flipCameraBtn');
+const flashBtn = document.getElementById('flashBtn');
+const countdown = document.getElementById('countdown');
+const countdownNumber = document.getElementById('countdownNumber');
+const captureFlash = document.getElementById('captureFlash');
+const capturedThumbnail = document.getElementById('capturedThumbnail');
+const thumbnailImg = document.getElementById('thumbnailImg');
+const closeThumbnail = document.getElementById('closeThumbnail');
 let stream = null;
+let currentFacingMode = 'user'; // Always default to front camera
+let isCapturing = false;
+let videoTrack = null;
 
-webcamBtn.addEventListener('click', () => {
+// Debug: Check if capture button exists
+console.log('Capture button element:', captureBtn);
+console.log('Capture button exists:', !!captureBtn);
+if (captureBtn) {
+    console.log('Capture button visible:', captureBtn.offsetParent !== null);
+    console.log('Capture button display style:', window.getComputedStyle(captureBtn).display);
+    console.log('Capture button visibility:', window.getComputedStyle(captureBtn).visibility);
+    console.log('Capture button disabled:', captureBtn.disabled);
+    console.log('Capture button z-index:', window.getComputedStyle(captureBtn).zIndex);
+    console.log('Capture button position:', window.getComputedStyle(captureBtn).position);
+    console.log('Capture button pointer-events:', window.getComputedStyle(captureBtn).pointerEvents);
+} else {
+    console.error('CRITICAL: Capture button element not found!');
+}
+
+// Check if cameras are available
+async function checkAvailableCameras() {
+    try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            return false;
+        }
+        
+        // Try to enumerate devices
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        return videoDevices.length > 0;
+    } catch (error) {
+        console.error('Error checking cameras:', error);
+        // If enumeration fails, still try to access camera
+        return true;
+    }
+}
+
+// Capture button click handler
+function handleCaptureClick() {
+    if (isCapturing) return;
+    
+    // Ensure video is ready
+    if (!video || video.readyState !== video.HAVE_ENOUGH_DATA) {
+        alert('Please wait for the camera to be ready.');
+        return;
+    }
+    
+    // Start countdown
+    startCountdown();
+}
+
+webcamBtn.addEventListener('click', async () => {
+    // Check if cameras are available first
+    try {
+        const camerasAvailable = await checkAvailableCameras();
+        if (!camerasAvailable) {
+            alert('No cameras found on this device. Please upload an image instead.');
+            return;
+        }
+    } catch (error) {
+        console.warn('Could not check cameras, proceeding anyway:', error);
+    }
+    
     webcamModal.style.display = 'block';
+    isCapturing = false;
+    
+    // Ensure capture button is enabled and visible
+    if (captureBtn) {
+        captureBtn.disabled = false;
+        captureBtn.style.display = 'flex';
+        captureBtn.style.visibility = 'visible';
+        captureBtn.style.opacity = '1';
+        captureBtn.style.pointerEvents = 'auto';
+        captureBtn.style.cursor = 'pointer';
+        
+        // Remove old listeners by cloning and replacing
+        const oldBtn = captureBtn;
+        const newCaptureBtn = oldBtn.cloneNode(true);
+        oldBtn.parentNode.replaceChild(newCaptureBtn, oldBtn);
+        captureBtn = newCaptureBtn;
+        
+        // Add fresh event listener
+        captureBtn.addEventListener('click', handleCaptureClick);
+    } else {
+        // Try to get button again if it wasn't found initially
+        captureBtn = document.getElementById('captureBtn');
+        if (captureBtn) {
+            captureBtn.disabled = false;
+            captureBtn.style.display = 'flex';
+            captureBtn.style.visibility = 'visible';
+            captureBtn.style.opacity = '1';
+            captureBtn.style.pointerEvents = 'auto';
+            captureBtn.style.cursor = 'pointer';
+            captureBtn.addEventListener('click', handleCaptureClick);
+        }
+    }
+    
+    // Hide fallback button
+    if (captureBtnFallback) {
+        captureBtnFallback.style.display = 'none';
+    }
+    
+    // Always start with front camera
+    currentFacingMode = 'user';
     startWebcam();
 });
 
+// Prevent clicks on modal backdrop from going through
+webcamModal.addEventListener('click', (e) => {
+    if (e.target === webcamModal) {
+        // Clicked on backdrop, close modal
+        stopWebcam();
+        isCapturing = false;
+        if (captureBtn) {
+            captureBtn.disabled = false;
+        }
+        webcamModal.style.display = 'none';
+    }
+});
+
+// Prevent clicks inside modal content from closing the modal
+const modalContent = webcamModal.querySelector('.modal-content');
+if (modalContent) {
+    modalContent.addEventListener('click', (e) => {
+        e.stopPropagation();
+    });
+}
+
 document.querySelector('#webcamModal .close').addEventListener('click', () => {
     stopWebcam();
+    isCapturing = false;
+    if (captureBtn) {
+        captureBtn.disabled = false;
+    }
+    if (captureBtnFallback) {
+        captureBtnFallback.disabled = false;
+    }
     webcamModal.style.display = 'none';
 });
 
 cancelWebcam.addEventListener('click', () => {
     stopWebcam();
+    isCapturing = false;
+    if (captureBtn) {
+        captureBtn.disabled = false;
+    }
+    if (captureBtnFallback) {
+        captureBtnFallback.disabled = false;
+    }
     webcamModal.style.display = 'none';
 });
 
 function startWebcam() {
-    navigator.mediaDevices.getUserMedia({ video: true })
+    // Request high-quality video with constraints - prefer front camera first
+    const constraints = {
+        video: {
+            width: { ideal: 1280, min: 640 },
+            height: { ideal: 720, min: 480 },
+            facingMode: currentFacingMode, // Use preferred instead of exact for better compatibility
+            aspectRatio: { ideal: 16/9 }
+        }
+    };
+    
+    navigator.mediaDevices.getUserMedia(constraints)
         .then((mediaStream) => {
             stream = mediaStream;
             video.srcObject = mediaStream;
+            
+            // Get the video track for additional control
+            videoTrack = mediaStream.getVideoTracks()[0];
+            if (videoTrack) {
+                console.log('Camera started with facing mode:', currentFacingMode);
+                console.log('Camera capabilities:', videoTrack.getCapabilities());
+            }
+            
+            // Apply mirror effect only for front camera
+            if (currentFacingMode === 'user') {
+                video.classList.add('mirror');
+            } else {
+                video.classList.remove('mirror');
+            }
+            
+            // Wait for video to be ready
+            video.onloadedmetadata = () => {
+                video.play().catch(err => {
+                    console.error('Error playing video:', err);
+                });
+                
+                // Update camera button to reflect current state
+                updateCameraButton();
+                
+                // Show notification about which camera is active
+                const cameraName = currentFacingMode === 'user' ? 'Front Camera' : 'Rear Camera';
+                showNotification(`${cameraName} is now active`, 'info');
+            };
         })
         .catch((error) => {
-            console.error('Error accessing webcam:', error);
-            alert('Unable to access webcam. Please check permissions.');
+            console.error('Error accessing webcam with exact constraints:', error);
+            
+            // Try with basic constraints if exact ones fail
+            const fallbackConstraints = {
+                video: {
+                    facingMode: currentFacingMode,
+                    width: { min: 640 },
+                    height: { min: 480 }
+                }
+            };
+            
+            navigator.mediaDevices.getUserMedia(fallbackConstraints)
+                .then((mediaStream) => {
+                    stream = mediaStream;
+                    video.srcObject = mediaStream;
+                    
+                    // Get the video track
+                    videoTrack = mediaStream.getVideoTracks()[0];
+                    if (videoTrack) {
+                        console.log('Camera started with fallback constraints, facing mode:', currentFacingMode);
+                    }
+                    
+                    // Apply mirror effect only for front camera
+                    if (currentFacingMode === 'user') {
+                        video.classList.add('mirror');
+                    } else {
+                        video.classList.remove('mirror');
+                    }
+                    
+                    video.onloadedmetadata = () => {
+                        video.play().catch(err => {
+                            console.error('Error playing video:', err);
+                        });
+                        
+                        // Update camera button to reflect current state
+                        updateCameraButton();
+                        
+                        // Show notification about which camera is active
+                        const cameraName = currentFacingMode === 'user' ? 'Front Camera' : 'Rear Camera';
+                        showNotification(`${cameraName} is now active`, 'info');
+                    };
+                })
+                .catch((fallbackError) => {
+                    console.error('Fallback webcam access failed:', fallbackError);
+                    alert('Unable to access webcam. Please check permissions and ensure your camera is connected.\n\nTip: Make sure you grant camera permissions and that no other app is using the camera.');
+                });
         });
+}
+
+// Update camera button appearance based on current camera
+function updateCameraButton() {
+    if (flipCameraBtn) {
+        if (currentFacingMode === 'user') {
+            flipCameraBtn.innerHTML = '📱'; // Front camera icon
+            flipCameraBtn.title = 'Switch to Rear Camera';
+        } else {
+            flipCameraBtn.innerHTML = '📷'; // Rear camera icon
+            flipCameraBtn.title = 'Switch to Front Camera';
+        }
+    }
+}
+
+// Flip camera functionality
+if (flipCameraBtn) {
+    flipCameraBtn.addEventListener('click', () => {
+        if (isCapturing) return;
+        
+        // Toggle between front and back camera
+        currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+        console.log('Switching to camera:', currentFacingMode);
+        
+        // Update button appearance
+        updateCameraButton();
+        
+        // Stop current camera and restart with new facing mode
+        stopWebcam();
+        setTimeout(() => {
+            startWebcam();
+        }, 200); // Slightly longer delay for camera switching
+    });
 }
 
 function stopWebcam() {
@@ -96,26 +356,217 @@ function stopWebcam() {
         stream.getTracks().forEach(track => track.stop());
         stream = null;
     }
+    if (videoTrack) {
+        videoTrack.stop();
+        videoTrack = null;
+    }
+    video.srcObject = null;
 }
 
-captureBtn.addEventListener('click', () => {
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    canvas.getContext('2d').drawImage(video, 0, 0);
+// Initialize capture button on page load as backup
+document.addEventListener('DOMContentLoaded', () => {
+    // Re-get the button reference after DOM is loaded
+    const btn = document.getElementById('captureBtn');
+    if (btn && btn !== captureBtn) {
+        captureBtn = btn;
+        btn.addEventListener('click', handleCaptureClick);
+    }
+});
+
+function startCountdown() {
+    console.log('🎯 StartCountdown function called!');
+    isCapturing = true;
+    if (captureBtn) {
+        captureBtn.disabled = true;
+        console.log('✅ Primary capture button disabled for countdown');
+    }
+    if (captureBtnFallback) {
+        captureBtnFallback.disabled = true;
+        console.log('✅ Fallback capture button disabled for countdown');
+    }
+    if (!captureBtn && !captureBtnFallback) {
+        console.error('❌ No capture button found in startCountdown!');
+    }
+    let count = 3;
     
+    countdown.style.display = 'flex';
+    countdownNumber.textContent = count;
+    console.log('⏰ Countdown started:', count);
+    
+    const countdownInterval = setInterval(() => {
+        count--;
+        if (count > 0) {
+            countdownNumber.textContent = count;
+            console.log('⏰ Countdown:', count);
+        } else {
+            clearInterval(countdownInterval);
+            countdown.style.display = 'none';
+            console.log('🎯 Countdown complete, starting capture');
+            performCapture();
+        }
+    }, 1000);
+}
+
+function performCapture() {
+    // Flash effect
+    captureFlash.style.display = 'block';
+    setTimeout(() => {
+        captureFlash.style.display = 'none';
+    }, 200);
+    
+    // Ensure video has enough data before capturing
+    if (video.readyState < video.HAVE_CURRENT_DATA) {
+        alert('Camera not ready. Please wait a moment and try again.');
+        isCapturing = false;
+        if (captureBtn) {
+            captureBtn.disabled = false;
+        }
+        return;
+    }
+    
+    // Set canvas dimensions to match video
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    
+    // Draw video frame to canvas with proper orientation
+    const ctx = canvas.getContext('2d');
+    ctx.save();
+    
+    // For front camera, we need to flip horizontally to show the correct orientation
+    // This matches what users expect to see (like a mirror)
+    if (currentFacingMode === 'user') {
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+        console.log('Applying front camera mirror correction');
+    }
+    
+    // Draw the video frame
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    ctx.restore();
+    
+    // Capture with high quality (0.95 quality for JPEG)
     canvas.toBlob((blob) => {
+        if (!blob) {
+            alert('Failed to capture image. Please try again.');
+            isCapturing = false;
+            if (captureBtn) {
+                captureBtn.disabled = false;
+            }
+            return;
+        }
+        
         const file = new File([blob], 'webcam-capture.jpg', { type: 'image/jpeg' });
         const dataTransfer = new DataTransfer();
         dataTransfer.items.add(file);
         imageUpload.files = dataTransfer.files;
         
-        previewImg.src = canvas.toDataURL();
+        // Get the captured image data URL
+        const capturedImageData = canvas.toDataURL('image/jpeg', 0.95);
+        
+        // Show preview in main area
+        previewImg.src = capturedImageData;
         imagePreview.style.display = 'block';
         
+        // Show thumbnail in top right corner
+        showCapturedThumbnail(capturedImageData);
+        
+        console.log('Image captured successfully with camera mode:', currentFacingMode);
+        
+        // Reset UI state
+        isCapturing = false;
+        if (captureBtn) {
+            captureBtn.disabled = false;
+        }
+        if (captureBtnFallback) {
+            captureBtnFallback.disabled = false;
+        }
         stopWebcam();
         webcamModal.style.display = 'none';
-    }, 'image/jpeg');
-});
+        
+        // Show success message
+        showNotification('Photo captured successfully!', 'success');
+        
+    }, 'image/jpeg', 0.95);
+}
+
+// Show captured thumbnail in top right corner
+function showCapturedThumbnail(imageData) {
+    if (thumbnailImg && capturedThumbnail) {
+        thumbnailImg.src = imageData;
+        capturedThumbnail.style.display = 'block';
+        
+        // Animate in
+        setTimeout(() => {
+            capturedThumbnail.style.opacity = '1';
+            capturedThumbnail.style.transform = 'scale(1)';
+        }, 10);
+    }
+}
+
+// Close thumbnail handler
+if (closeThumbnail) {
+    closeThumbnail.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (capturedThumbnail) {
+            capturedThumbnail.style.opacity = '0';
+            capturedThumbnail.style.transform = 'scale(0.8)';
+            setTimeout(() => {
+                capturedThumbnail.style.display = 'none';
+            }, 300);
+        }
+    });
+}
+
+// Make thumbnail clickable to view full image
+if (thumbnailImg) {
+    thumbnailImg.addEventListener('click', () => {
+        // Scroll to the main preview
+        if (imagePreview) {
+            imagePreview.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    });
+}
+
+// Notification function for user feedback
+function showNotification(message, type = 'info') {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.textContent = message;
+    
+    // Style the notification
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: ${type === 'success' ? '#4CAF50' : type === 'error' ? '#f44336' : '#2196F3'};
+        color: white;
+        padding: 15px 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        z-index: 10000;
+        font-weight: 500;
+        transform: translateX(100%);
+        transition: transform 0.3s ease;
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Animate in
+    setTimeout(() => {
+        notification.style.transform = 'translateX(0)';
+    }, 100);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+        notification.style.transform = 'translateX(100%)';
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 300);
+    }, 3000);
+}
 
 // Analyze Skin
 analyzeBtn.addEventListener('click', async () => {

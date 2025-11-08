@@ -114,6 +114,50 @@ def get_skincare_recommendations(skin_type, analysis):
             'Drink adequate water daily'
         ]
     
+    elif skin_type == 'Sensitive':
+        recommendations['products'] = [
+            'Gentle, fragrance-free cleanser',
+            'Hypoallergenic moisturizer with ceramides',
+            'Soothing serum (centella asiatica, niacinamide)',
+            'Mineral sunscreen (zinc oxide, titanium dioxide)',
+            'Calming face mask (aloe vera, chamomile)'
+        ]
+        recommendations['morning_routine'] = [
+            'Cleanse with gentle, lukewarm water',
+            'Apply soothing serum',
+            'Moisturize with hypoallergenic cream',
+            'Apply mineral sunscreen (SPF 30+)'
+        ]
+        recommendations['night_routine'] = [
+            'Remove makeup with gentle micellar water',
+            'Cleanse with gentle cleanser',
+            'Apply calming serum',
+            'Moisturize with barrier-repair cream',
+            'Avoid active ingredients on irritated days'
+        ]
+        recommendations['diet_tips'] = [
+            'Avoid inflammatory foods (processed, high sugar)',
+            'Include anti-inflammatory foods (omega-3, turmeric)',
+            'Stay hydrated with water',
+            'Consider probiotics for skin health',
+            'Limit alcohol and spicy foods'
+        ]
+        recommendations['hydration_tips'] = [
+            'Use lukewarm water (never hot)',
+            'Pat dry gently, don\'t rub',
+            'Apply products immediately after cleansing',
+            'Test new products on small area first',
+            'Avoid harsh exfoliants and fragrances',
+            'Use products with minimal ingredients'
+        ]
+        recommendations['general_tips'] = [
+            'Patch test all new products for 48 hours',
+            'Avoid products with alcohol, fragrance, and harsh acids',
+            'Use gentle, pH-balanced products',
+            'Protect skin from extreme temperatures',
+            'Consider consulting a dermatologist for persistent issues'
+        ]
+    
     else:  # Normal
         recommendations['products'] = [
             'Gentle cleanser',

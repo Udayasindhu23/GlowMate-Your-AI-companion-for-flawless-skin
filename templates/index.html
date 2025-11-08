@@ -26,6 +26,12 @@
             </div>
         </header>
 
+        <!-- Captured Photo Thumbnail -->
+        <div id="capturedThumbnail" class="captured-thumbnail" style="display: none;">
+            <img id="thumbnailImg" src="" alt="Captured Photo">
+            <button id="closeThumbnail" class="close-thumbnail" title="Close">×</button>
+        </div>
+
         <!-- Main Content -->
         <main class="main-content">
             <!-- Analysis Section -->
@@ -51,13 +57,35 @@
 
                 <!-- Webcam Modal -->
                 <div id="webcamModal" class="modal">
-                    <div class="modal-content glass-card">
+                    <div class="modal-content glass-card webcam-modal">
                         <span class="close">&times;</span>
-                        <h3>Capture Your Photo</h3>
-                        <video id="video" autoplay playsinline></video>
+                        <h3>📷 Capture Your Photo</h3>
+                        <p class="webcam-instructions">
+                            Position your face in the center with good lighting
+                        </p>
+                        <div class="video-container">
+                            <video id="video" autoplay playsinline muted></video>
+                            <div class="video-overlay">
+                                <div class="camera-controls">
+                                    <button id="flipCameraBtn" class="control-btn" title="Flip Camera">🔄</button>
+                                    <button id="flashBtn" class="control-btn" title="Flash" style="display: none;">⚡</button>
+                                </div>
+                                <div id="countdown" class="countdown" style="display: none;">
+                                    <span id="countdownNumber">3</span>
+                                </div>
+                                <div id="captureFlash" class="capture-flash"></div>
+                            </div>
+                        </div>
                         <canvas id="canvas" style="display: none;"></canvas>
                         <div class="modal-actions">
-                            <button id="captureBtn" class="btn-primary">Capture</button>
+                            <button id="captureBtn" class="btn-primary capture-button">
+                                <span class="capture-icon">📸</span>
+                                <span class="capture-text">Capture</span>
+                            </button>
+                            <button id="captureBtnFallback" class="capture-button-fallback btn btn-primary" style="display: none;">
+                                <span>📷</span>
+                                Capture (Fallback)
+                            </button>
                             <button id="cancelWebcam" class="btn-secondary">Cancel</button>
                         </div>
                     </div>
